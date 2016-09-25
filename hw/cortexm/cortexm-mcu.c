@@ -52,6 +52,8 @@ static void cortexm_mcu_image_load_callback(DeviceState *dev);
 /* Redefined from armv7m.c */
 #define TYPE_BITBAND "ARM,bitband-memory"
 
+Object *nvic;
+
 void cortexm_bitband_init(Object *parent, const char *node_name,
         uint32_t address)
 {
@@ -77,11 +79,15 @@ static void cortexm_mcu_do_unassigned_access_callback(CPUState *cpu,
             __FUNCTION__, addr, size, is_write ? "true" : "false",
             is_exec ? "true" : "false");
 
+    printf("%s(addr=0x%08"PRIX64", size=%d, is_write=%s, is_exec=%s)\n",__FUNCTION__, addr, size, is_write ? "true" : "false",
+            is_exec ? "true" : "false");
+
     //CPUARMState *env;
     //env = cpu->env_ptr;
 
     /* TODO: check for flag and raise ARMV7M_EXCP_MEM */
-    // cortexm_nvic_set_pending(???, ARMV7M_EXCP_HARD);
+
+    //cortexm_nvic_set_pending(nvic, ARMV7M_EXCP_MEM);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -155,6 +161,7 @@ static void cortexm_mcu_realize_callback(DeviceState *dev, Error **errp)
 
         CPUClass *cc;
         cc = CPU_GET_CLASS(cpu);
+
         /* Hook on the CPU unassigned access */
         cc->do_unassigned_access = cortexm_mcu_do_unassigned_access_callback;
 
@@ -284,7 +291,7 @@ static void cortexm_mcu_realize_callback(DeviceState *dev, Error **errp)
     /* ----- Construct the NVIC object. ----- */
     {
         /* The NVIC will be available via "/machine/cortexm/nvic" */
-        Object *nvic = cm_object_new(cm_state->container, "nvic",
+        nvic = cm_object_new(cm_state->container, "nvic",
         TYPE_CORTEXM_NVIC);
 
         int num_irq;
@@ -310,6 +317,8 @@ static void cortexm_mcu_realize_callback(DeviceState *dev, Error **errp)
 
         sysbus_connect_irq(SYS_BUS_DEVICE(cm_state->nvic), 0,
                 qdev_get_gpio_in(DEVICE(cm_state->cpu), ARM_CPU_IRQ));
+
+        
 
         GICState *gs = ARM_GIC_COMMON(nvic);
         gs->basepri_ptr = &env->v7m.basepri;

@@ -19,13 +19,26 @@
 
 #include "hw/cortexm/stm32-mcus.h"
 #include "hw/display/gpio-led.h"
+#include "hw/i2c/i2c.h"
 #include "hw/cortexm/cortexm-helper.h"
 #include "sysemu/sysemu.h"
+#include "ui/console.h"
+#include <pthread.h>
+
 
 /*
  * This file defines several STM32 boards.
  * Where available, the board names follow the CMSIS Packs names.
  */
+
+typedef struct {
+        bool last_button_pressed;
+        qemu_irq button_irq;
+} Stm32Maple;
+
+Stm32Maple *s;
+Object *btn;
+ Object *mcu;
 
 /* ----- ST STM32F4-Discovery ----- */
 
@@ -73,13 +86,45 @@ static GPIOLEDInfo stm32f4_discovery_leds_info[] = {
     { }, /**/
 };
 
+
+
+void *timer_thread(void* arg)
+{
+  
+    sleep(2);  //sleep for a second
+
+    DeviceState *gpio_a = DEVICE(object_resolve_path("/machine/mcu/stm32/gpio[a]", NULL));
+    int i;// 26 was the majic number
+
+    while(1) {
+        CortexMState *cm_state = CORTEXM_MCU_STATE(mcu);
+        sleep(1);
+        qemu_irq irq = qdev_get_gpio_in(gpio_a, 0);
+        qemu_irq_raise(irq);
+        
+        for (i = 16; i < 30; i++) {
+            cortexm_nvic_set_pending(cm_state->nvic, i);
+        }
+
+        sleep(1);
+        qemu_irq_lower(irq);
+
+        for (i = 16; i < 30; i++) {
+            cortexm_nvic_set_pending(cm_state->nvic, i);
+        }
+    };
+
+    return NULL;
+}
+
+
 static void stm32f4_discovery_board_init_callback(MachineState *machine)
 {
     cm_board_greeting(machine);
 
     {
         /* Create the MCU */
-        Object *mcu = cm_object_new_mcu(machine, TYPE_STM32F407VG);
+        mcu = cm_object_new_mcu(machine, TYPE_STM32F407VG);
 
         /* Set the board specific oscillator frequencies. */
         cm_object_property_set_int(mcu, 8000000, "hse-freq-hz"); /* 8.0 MHz */
@@ -94,6 +139,18 @@ static void stm32f4_discovery_board_init_callback(MachineState *machine)
     Object *peripheral = cm_container_get_peripheral();
     gpio_led_create_from_info(peripheral, stm32f4_discovery_leds_info,
             board_surface);
+
+    // CortexMState *cm_state = CORTEXM_MCU_STATE(mcu);
+    // DeviceState *gpio_a = DEVICE(object_resolve_path("/machine/mcu/stm32/gpio[a]", NULL));
+    // sysbus_connect_irq(SYS_BUS_DEVICE(gpio_a), 0, qdev_get_gpio_in(cm_state->nvic, 42));
+
+    pthread_t t_timer; //Thread id for timer thread
+    if (-1 == pthread_create(&t_timer, NULL, timer_thread, NULL))
+    {
+        printf("pthread_create\n");
+    }
+
+        
 }
 
 static void stm32f4_discovery_board_class_init_callback(ObjectClass *oc,
@@ -141,10 +198,12 @@ static void stm32f4_discovery2_board_class_init_callback(ObjectClass *oc,
     mc->init = stm32f4_discovery2_board_init_callback;
 }
 
+
 static const TypeInfo stm32f4_discovery2_machine = {
     .name = MACHINE_TYPE_NAME("STM32F4-Discovery2"),
     .parent = TYPE_MACHINE,
     .class_init = stm32f4_discovery2_board_class_init_callback, };
+
 
 /* ----- ST STM32F429I-Discovery ----- */
 
