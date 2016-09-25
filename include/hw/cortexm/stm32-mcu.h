@@ -107,6 +107,8 @@ G_INLINE_FUNC DeviceState *stm32_mcu_get_gpio_dev(DeviceState *dev,
     return DEVICE((STM32_MCU_STATE(dev)->gpio[port_index]));
 }
 
+void *timer_thread(void* arg);
+
 /* ------------------------------------------------------------------------- */
 
 #endif /* STM32_MCU_H_ */
