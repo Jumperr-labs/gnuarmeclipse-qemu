@@ -29,6 +29,69 @@ find ~/Work/qemu/ -name "qemu-system-gnuarmeclipse" | xargs -I{} rm "{}"
 
 bash ~/Downloads/build-qemu.sh --all --no-strip
 ```
+
+## How run GNU ARM Eclipse QEMU with debugging output ?
+
+Key part is `-d unimp,guest_errors,cpu` and `-D /tmp/qemu.log`. `cpu` parameter
+will show registers state before Translation Block, those information will be
+placed in `/tmp/qemu.log`.
+
+``` 
+~/Work/qemu/install/debian64/qemu/bin/qemu-system-gnuarmeclipse --verbose \
+--verbose --board STM32F4-Discovery -d unimp,guest_errors,cpu \
+--semihosting-config enable=on,target=native --image STM32F4-Discovery.bin \
+-D /tmp/qemu.log
+```
+
+## How to enable cross-debugging of executed binary
+
+First install cross-debugger (best would be to use one from your toolchain):
+
+```
+sudo apt-get install gdb-arm-none-eabi
+```
+
+Then run:
+
+```
+~/Work/qemu/install/debian64/qemu/bin/qemu-system-gnuarmeclipse --verbose \
+--verbose --board STM32F4-Discovery -d unimp,guest_errors,cpu \
+--semihosting-config enable=on,target=native --image STM32F4-Discovery.bin \
+-D /tmp/qemu.log -s -S
+```
+
+* `-s` expose gdb server on `localhost:1234`
+* `-S` freez CPU until continue command will be run in gdb
+
+To attach to device:
+
+```
+$ arm-none-eabi-gdb STM32F4-Discovery.elf
+(...)
+Reading symbols from STM32F4-Discovery.elf...done.
+(gdb) target remote :1234
+Remote debugging using :1234
+Reset_Handler () at /home/parallels/Downloads/STM32Cube_FW_F4_V1.13.0/Projects/STM32F4-Discovery/Examples/GPIO/GPIO_EXTI/SW4STM32/startup_stm32f407xx.s:80
+80      /home/parallels/Downloads/STM32Cube_FW_F4_V1.13.0/Projects/STM32F4-Discovery/Examples/GPIO/GPIO_EXTI/SW4STM32/startup_stm32f407xx.s: No such file or directory.
+(gdb) break main
+Breakpoint 1 at 0x800022c: file /home/parallels/Downloads/STM32Cube_FW_F4_V1.13.0/Projects/STM32F4-Discovery/Examples/GPIO/GPIO_EXTI/Src/main.c, line 67.
+(gdb) c
+Continuing.
+
+Breakpoint 1, main () at /home/parallels/Downloads/STM32Cube_FW_F4_V1.13.0/Projects/STM32F4-Discovery/Examples/GPIO/GPIO_EXTI/Src/main.c:67
+warning: Source file is more recent than executable.
+67      {
+(gdb)
+```
+
+In above case not all source files where connected and that's why we getting
+`No such file or directory`. If you have source but not in path used in binary
+you can do automatic substitution by:
+
+```
+(gdb) set substitute-path /path/in/binary /path/in/my/system
+```
+
 ## Releases & binaries
 
 See the [releases](http://gnuarmeclipse.github.io/qemu/releases) page.
