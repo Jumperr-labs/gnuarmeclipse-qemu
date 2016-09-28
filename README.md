@@ -11,9 +11,24 @@ The [GNU ARM Eclipse QEMU](http://gnuarmeclipse.github.io/qemu) subproject is a 
 
 ## How to build
 
+Follow original "How to build" from QEMU with some **minor changes**
 * [How to build](http://gnuarmeclipse.github.io/qemu/build-procedure) (using Docker containers)
 * [Change log](http://gnuarmeclipse.github.io/qemu/change-log) ([2014](http://gnuarmeclipse.github.io/qemu/change-log/2014))
 
+**minor changes:**
+
+curl -L https://github.com/Jumperr-labs/build-scripts/raw/master/scripts/build-qemu.sh -o ~/Downloads/build-qemu.sh
+
+## How to build with debug-symbols
+
+After building:
+```bash
+#Remove all executables:
+
+find ~/Work/qemu/ -name "qemu-system-gnuarmeclipse" | xargs -I{} rm "{}"
+
+bash ~/Downloads/build-qemu.sh --all --no-strip
+```
 ## Releases & binaries
 
 See the [releases](http://gnuarmeclipse.github.io/qemu/releases) page.
